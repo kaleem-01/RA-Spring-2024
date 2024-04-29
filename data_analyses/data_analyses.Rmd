@@ -1,0 +1,233 @@
+---
+title: "Data Analyses"
+author: "Kaleem Ullah"
+date: "2024-04-22"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# knitr::opts_knit$set(root.dir="/courses/RA - Spring 2024/Gorilla Data")
+knitr::opts_knit$set(root.dir="D://RA - Spring 2024//Gorilla Data")
+require(tidyverse)
+require(lme4)
+require(ggplot2)
+require(brms)
+library(dplyr)
+```
+
+# Exploratory Data Analyses
+
+```{r explore}
+df <- read.csv("new_csv//preprocessed_data.csv")
+length(unique(df$ppn))
+```
+
+## Preliminary Analyses
+
+```{r}
+df$culture <- as.factor(df$culture)
+df$ppn2 <- as.factor(df$ppn2)
+df$emotion <- as.factor(df$emotion)
+df$accuracy <- as.factor(df$accuracy)
+
+# Define control settings for the optimizer
+control_settings <- glmerControl(optimizer = "bobyqa",
+                                 optCtrl = list(maxfun = 1e5),  # increase max function evaluations
+                                 calc.derivs = TRUE,
+                                 check.conv.grad = .makeCC("warning", tol = 1e-3, relTol = NULL))
+
+
+# Hypothesis 1
+accuracy_fit_1 <- glmer(accuracy ~ culture + (1 | emotion), 
+                      data = df, 
+                      family = binomial,
+                      control = control_settings)
+
+# accuracy_fit_2 <- glmer(accuracy ~ culture + (1 | ppn2/emotion), 
+#                       data = df, 
+#                       family = binomial, 
+#                       control = control_settings)
+# 
+
+summary(accuracy_fit_1)
+# summary(accuracy_fit_2)
+anova(accuracy_fit_1) # , accuracy_fit_2)
+```
+```{r}
+help(isSingular)
+```
+
+
+
+## Effects size: Odds Ratio
+
+Odds Ratio (OR): An odds ratio greater than 1 indicates that the odds of the event (e.g., success) are higher for higher values of the predictor, while an odds ratio less than 1 indicates lower odds.
+
+```{r}
+# Chinese 
+coefs <- fixef(accuracy_fit_1)
+coef_CN <- coefs["cultureCN"]
+odds_ratio_1 <- exp(coef_CN)
+print(odds_ratio_1)
+
+# Dutch
+coefs <- fixef(accuracy_fit_1)
+coef_NL <- coefs["cultureNL"]
+odds_ratio_2 <- exp(coef_NL)
+print(odds_ratio_2)
+
+# Adoptee
+coefs <- fixef(accuracy_fit_1)
+coef_AD <- coefs["Intercept"]
+odds_ratio_3 <- exp(coef_AD)
+print(odds_ratio_3)
+
+
+```
+
+
+
+# Likert 1 
+
+```{r}
+# Hypothesis 2
+iden_fit <- lmerTest::lmer(likert1 ~ culture + (1 | ppn),
+                 data=df)
+# summary(iden_fit)
+summary(iden_fit)
+```
+
+```{r}
+ggplot(df, aes(x = likert1, y = culture)) + geom_violin() + labs(title = "Distribution of Likert1 by Culture")
+```
+
+## Effect Size: Cohen's d
+
+Cohen's d: Cohen's d represents the effect size in standard deviation units. 
+
+A value of d=0.2 is considered a small effect, d=0.5 a medium effect, and d=0.8 a large effect.
+
+```{r}
+# Chinese
+lmer_coef <- fixef(iden_fit)
+lmer_CN <- lmer_coef["cultureCN"]
+lmer_d <- lmer_CN / sd(na.omit(df$likert1))
+print(lmer_d)
+
+# Dutch
+lmer_coef <- fixef(iden_fit)
+lmer_NL <- lmer_coef["cultureNL"]
+lmer_d <- lmer_NL / sd(na.omit(df$likert1))
+print(lmer_d)
+```
+
+
+# Likert 2
+
+```{r}
+iden_fit_2 <- lmerTest::lmer(likert2 ~ culture + (1 | ppn),
+                 data=df)
+summary(iden_fit_2)
+# anova(iden)
+```
+
+```{r}
+# Chinese
+lmer_coef <- fixef(iden_fit_2)
+lmer_CN <- lmer_coef["cultureCN"]
+lmer_d <- lmer_CN / sd(na.omit(df$likert2))
+print(lmer_d)
+
+# Dutch
+lmer_coef <- fixef(iden_fit_2)
+lmer_NL <- lmer_coef["cultureNL"]
+lmer_d <- lmer_NL / sd(na.omit(df$likert2))
+print(lmer_d)
+```
+
+
+```{r}
+ggplot(df, aes(x = culture, y = likert2)) + geom_violin() + labs(title = "Distribution of Likert2 by Culture")
+```
+
+## Bayesian Analyses for Hypothesis 2
+
+Compare where dutch and 
+```{r}
+# Model 1
+priors_CN <- set_prior("normal(5, 2)", class = "b", coef = "cultureCN")
+priors_NL <- set_prior("normal(3, 2)", class = "b", coef = "cultureNL")
+priors_AD <- set_prior("normal(5, 2)", class = "Intercept")
+
+# Model 2
+priors_CN <- set_prior("normal(5, 2)", class = "b", coef = "cultureCN")
+priors_NL <- set_prior("normal(3, 2)", class = "b", coef = "cultureNL")
+priors_AD <- set_prior("normal(3, 2)", class = "Intercept")
+
+
+df = na.omit(df)
+
+bayesian_model <- brm(likert1 ~ culture + (1 | ppn), data = df, prior = c(priors_CN,priors_NL, priors_AD))
+summary(bayesian_model)
+
+
+
+```
+```{r}
+bayesian_model$
+```
+
+
+```{r}
+priors_CN <- set_prior("uniform(0, 10)", class = "b", coef = "cultureCN")
+priors_NL <- set_prior("uniform(0, 10)", class = "b", coef = "cultureNL")
+priors_AD <- set_prior("uniform(0, 10)", class = "Intercept")
+
+df = na.omit(df)
+
+bayesian_model <- brm(likert1 ~ culture + (1 | ppn), data = df, prior = c(priors_CN,priors_NL, priors_AD))
+summary(bayesian_model)
+```
+
+
+## Interpretation
+ A negative intercept indicates that the log-odds of the outcome occurring (e.g., success, presence, yes) is less than zero when all predictors are zero, which translates to a probability less than 0.5. This means that the base level of the outcome is more likely not to occur than to occur at the baseline level of the predictors.
+
+```{r}
+# df = na.omit(df)
+
+# Hypothesis 3
+glm_fit <- glmer(accuracy ~ culture + likert1 + (1 | emotion),
+                 data = df, 
+                 family = binomial, 
+                 control = glmerControl(optimizer = "bobyqa"),
+                 nAGQ = 10)
+
+glm_fit_2 <- glmer(accuracy ~ culture + likert2 + (1 | emotion),
+                 data = df, 
+                 family = binomial)
+
+
+summary(glm_fit)
+summary(glm_fit_2)
+```
+
+
+
+# Demographics
+
+```{r}
+demo_data <- read.csv("new_csv/prelim_demo.csv", header=T)
+```
+
+```{r}
+ratio <- sum(demo_data$gender == '男') / sum(demo_data$gender == '女')
+```
+
+Mean Age: `r mean(demo_data$age)` 
+Ratio of Male/Female: `r ratio`
+
+

@@ -1,0 +1,236 @@
+---
+title: "Preliminary Data Screening"
+author: "Kaleem Ullah"
+date: "2024-03-15"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir="/courses/RA - Spring 2024/Gorilla Data")
+require(tidyverse)
+```
+
+## Check the percentage of videos that were played
+
+```{r}
+# setwd('D:\\RA - Spring 2024\\Gorilla Data\\raw_data')
+video_data_recog <- read.csv("metadata/recog_flat.csv", header=TRUE)
+video_data_iden <- read.csv("metadata/iden_flat.csv", header=TRUE)
+video_data_recog['trial'] = video_data_recog['trial.number']
+video_data_iden['trial'] = video_data_iden['trial.number']
+
+num_ppn_recog <- length(unique(video_data_recog$ppn))
+num_ppn_iden <- length(unique(video_data_iden$ppn))
+df_recog <- read.csv("raw_data/emotion_recog.csv", header=TRUE)
+df_iden <- read.csv("raw_data/emotion_iden.csv", header=TRUE)
+expected_played_recog <- num_ppn_recog*24
+expected_played_iden <- num_ppn_iden*24
+videos_played_recog <- length(video_data_recog$reaction.recog)
+videos_played_iden <- length(video_data_iden$reaction.iden)
+```
+
+
+```{r}
+head(video_data_recog)
+```
+
+
+## Check individually for each task
+
+
+Expected videos played: `r expected_played_recog` 
+
+Total videos played: `r videos_played_recog` 
+
+Percentage of videos played: `r videos_played_recog/expected_played_recog*100` 
+
+
+### 1. Recognition Task
+
+**Videos Played**
+
+```{r}
+zoneType <- df_recog$Zone.Type
+last_iter = "response_button_text"
+unplayed = 0
+for (i in zoneType){
+  if (last_iter == "response_button_text" & i  == "response_button_text") {
+    unplayed = unplayed + 1
+  }
+  last_iter = i
+}
+unplayed / length(df_recog$Zone.Type)
+```
+
+**Reaction Time**
+
+```{r}
+reac_recog <- sum(video_data_recog$reaction.recog < 1000, na.rm=TRUE)
+```
+
+Percentage of videos played less than 1 second: `r reac_recog/videos_played_recog * 100`
+
+## Time Taken for each task
+
+```{r}
+total_time_recog <- as.numeric(df_recog[df_recog$Trial.Number == "END TASK",]$Reaction.Time) / 1000
+```
+
+```{r}
+summary(total_time_recog)
+```
+
+
+### 2. Identification Task
+
+Expected videos played: `r expected_played_iden`
+
+Total videos played: `r videos_played_iden`
+
+Percentage of videos played: `r videos_played_iden/expected_played_iden*100`
+
+```{r}
+reac_iden <- sum(video_data_iden$reaction.iden < 1000, na.rm=TRUE)
+```
+
+Percentage of videos played less than 1 second: `r reac_iden/videos_played_recog * 100`
+
+
+```{r}
+total_time_iden <- as.numeric(df_iden[df_iden$Trial.Number == "END TASK",]$Reaction.Time) / 1000
+```
+
+```{r}
+summary(total_time_iden)
+```
+
+
+## Percentage of videos watched by participants
+
+# Recognition
+
+## Check number of videos played
+
+```{r}
+num_ppn <- length(unique(video_data_recog$CINT))
+# cint_id <- length(unique(video_data_recog$ppn))
+number_per_ppn <- numeric(num_ppn)
+ppns <- as.list(unique(video_data_recog['CINT']))
+cint_id_list <- as.list(unique(video_data_recog['CINT']))
+
+
+i = 0
+for (each_ppn in ppns$CINT) {
+  # print(each_ppn)
+  # print()
+  number_per_ppn[i] <- length(video_data_recog$trial[video_data_recog["CINT"] == each_ppn])
+  # print(numbers_per_ppn)
+  i = i + 1
+}
+```
+
+# Create csv with number of videos watched
+
+```{r}
+videos_per_ppn1 <- data.frame(ppn = ppns, videos = number_per_ppn)
+write.csv(videos_per_ppn1, 'metadata/videos_per_ppn_1.csv')
+```
+
+
+```{r}
+ratio_vids <- numeric(23)
+for (i in 1:24) {
+  # print(i)
+  ratio_vids[i] <- sum(number_per_ppn < i) / num_ppn
+}
+```
+
+```{r}
+# png("plots/ratio_recog.png", width=800, height=600)
+plot(ratio_vids[1:20], main = "The Ratio of Unwatched Videos at Participant Level (Block 1)", ylab="Ratio of participants", xlab="Number of Videos")
+# dev.off()
+```
+
+
+```{r}
+print(sum(number_per_ppn < 12) / num_ppn)
+```
+
+
+### Identification
+
+
+```{r}
+num_ppn <- length(unique(video_data_iden$CINT))
+number_per_ppn <- numeric(num_ppn)
+ppns <- as.list(unique(video_data_iden['CINT']))
+# cint_id_list2 <- as.list(unique(video_data_recog['CINT']))
+i = 0
+for (each_ppn in ppns$CINT) {
+  # print(each_ppn)
+  # print()
+  number_per_ppn[i] <- length(video_data_iden$trial[video_data_iden["CINT"] == each_ppn])
+  # print(numbers_per_ppn)
+  i = i + 1
+}
+```
+
+
+```{r}
+videos_per_ppn2 <- data.frame(ppn = ppns, videos = number_per_ppn)
+write.csv(videos_per_ppn2, 'metadata/videos_per_ppn_2.csv')
+```
+
+```{r}
+ratio_vids <- numeric(23)
+for (i in 1:24) {
+  # print(i)
+  ratio_vids[i] <- sum(number_per_ppn < i) / num_ppn
+}
+```
+
+```{r}
+# png("plots/ratio_iden.png", width=800, height=600)
+plot(ratio_vids[1:20], main = "The Ratio of Unwatched Videos at Participant Level (Block 2)", ylab="Ratio of participants", xlab="Number of Videos")
+# dev.off()
+```
+
+
+```{r}
+print(sum(number_per_ppn < 12) / num_ppn)
+```
+
+
+```{r}
+for (i in 1:24) {
+  # print(i)
+  print(sum(number_per_ppn < i) / length(number_per_ppn))
+}
+```
+
+
+## Accuracy Check in difference for reaction time
+
+```{r}
+less_than_one <- video_data_recog[video_data_recog$reaction.recog < 1000, ]
+more_than_one <- video_data_recog[video_data_recog$reaction.recog > 1000, ]
+```
+
+
+```{r}
+clean_data <- read.csv("new_csv/preprocessed_data.csv", header = TRUE)
+```
+
+
+```{r}
+join_less <- clean_data %>% right_join(less_than_one, by=c("trial", 'ppn'), relationship = "many-to-many")
+join_less <- na.omit(join_less)
+sum(join_less$accuracy) / length(join_less$accuracy)
+```
+
+```{r}
+join_more <- clean_data %>% right_join(more_than_one, by=c("trial", 'ppn'), relationship = "many-to-many")
+join_more <- na.omit(join_more)
+sum(join_more$accuracy) / length(join_more$accuracy)
+```
